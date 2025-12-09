@@ -16,11 +16,11 @@
 #include "geometry.hpp"
 
 // Rendering parameters
-const unsigned int planeSize = 150; // side length of the square plane
+const unsigned int planeSize = 300; // side length of the square plane
 const unsigned int grassDensity = 100; // grass per unit squared
 
 // screen width and height
-int screenWidth = 800, screenHeight = 600;
+int screenWidth = 1920, screenHeight = 1080;
 
 // camera
 Camera camera(glm::vec3(0.0f, 0.0f, 10.0f));
@@ -79,6 +79,7 @@ void mouseCallback(GLFWwindow* window, double xposIn, double yposIn)
 
 int main()
 {
+    // init glfw
     if (!glfwInit()) {
         std::cout << "Failed to initialize GLFW" << std::endl;
         return -1;
@@ -90,7 +91,8 @@ int main()
     // Anti aliasing
     glfwWindowHint(GLFW_SAMPLES, 4);        
 
-    GLFWwindow* window = glfwCreateWindow(800, 600, "Window1", NULL, NULL);
+    // Create window and register callbacks
+    GLFWwindow* window = glfwCreateWindow(screenWidth, screenHeight, "Window1", NULL, NULL);
     if (window == NULL) {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -103,9 +105,10 @@ int main()
     // capture mouse
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-    // Disable vsync
+    // Disable vsync for fps testing
     glfwSwapInterval(0);
 
+    // Load opengl functions with glad
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         std::cout << "Failed to initialize GLAD" << std::endl;
         glfwTerminate();
@@ -121,10 +124,11 @@ int main()
     // enable anti aliasing
     glEnable(GL_MULTISAMPLE);
 
+    // Load and compile shaders
     Shader grassShader("../shaders/grass.vs", "../shaders/grass.fs");
     Shader planeShader("../shaders/plane.vs", "../shaders/plane.fs");
 
-    // Grass geometry
+    // Load geometry
     Mesh grassMesh = generateGrassBillboard();
     Mesh planeMesh = generateFlatPlane();
 
@@ -149,16 +153,17 @@ int main()
         return -1;
     }
 
+    // Generate texture and mipmaps
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
     glGenerateMipmap(GL_TEXTURE_2D);
 
     stbi_image_free(image);
 
-    // transparency
+    // transparency for grass texture
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // Set shader uniform
+    // Set shader uniform to grasstexture
     grassShader.use();
     grassShader.setInt("grasstex", 0);
 
@@ -175,7 +180,6 @@ int main()
             for (int k = 0; k < grassDensity; k++) {
                 glm::mat4 grassModel = glm::mat4(1.0f);
 
-
                 // Translation
                 float xOffset = (float)rand()/(float)RAND_MAX;
                 float zOffset = (float)rand()/(float)RAND_MAX;
@@ -188,7 +192,7 @@ int main()
 
                 // Rotate
                 float rotY = ((float)rand()/RAND_MAX) * 360.0f;
-                float rotX = (((float)rand()/RAND_MAX) - 0.5f) * 10.0f; 
+                float rotX = (((float)rand()/RAND_MAX) - 0.5f) * 30.0f; 
                 grassModel = glm::rotate(grassModel, glm::radians(rotY), glm::vec3(0,1,0));
                 grassModel = glm::rotate(grassModel, glm::radians(rotX), glm::vec3(1,0,0));
 
@@ -228,12 +232,14 @@ int main()
     // for fps counter
     float secondAgo = glfwGetTime();
     int frameCount = 0;
+    
     while (!glfwWindowShouldClose(window)) {
         // Frame timing
         float frameTime = static_cast<float>(glfwGetTime());
         deltaT = frameTime - oldFrameTime;
         oldFrameTime = frameTime;
 
+        // FPS counter that prints once per second
         frameCount++;
         if (frameTime - secondAgo >= 1.0f ) {
             std::cout << "fps: " << frameCount << " / ms/frame: " << 1000.0/double(frameCount) << "\n";
@@ -244,15 +250,13 @@ int main()
         // Input
         processInput(window);
         
-        // BG Color
+        // BG Color (sky blue)
         glClearColor(0.53f, 0.80f, 0.92f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // transformation matrices
         glm::mat4 p = glm::perspective(glm::radians(90.0f), (float)screenWidth / (float)screenHeight, 0.1f, 1000.0f);
-        //glm::mat4 p = glm::mat4(1.0f);
         glm::mat4 v = camera.GetViewMatrix();
-        //std::cout << glm::to_string(p) << std::endl;
         grassShader.use();
         grassShader.setMat4("p", p);
         grassShader.setMat4("v", v);
@@ -263,24 +267,24 @@ int main()
         // Draw plane
         float planeScale = (float)planeSize/2.0f;
         glm::mat4 planeModel = glm::mat4(1.0f);
-        //planeModel = glm::translate(planeModel, glm::vec3(0.0f, 0.0f, 0.0f));
         planeModel = glm::scale(planeModel, glm::vec3(planeScale, planeScale, planeScale));
         planeShader.setMat4("m", planeModel);
         glBindVertexArray(planeMesh.VAO);
         glDrawElements(GL_TRIANGLES, planeMesh.indexCount, GL_UNSIGNED_INT, 0);
 
-        // Draw grass
+        // Set grass texture
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, grassTexture);
 
+        // Draw a lot of grass using GPU instancing
         grassShader.use();
         glBindVertexArray(grassMesh.VAO);
-        //glDrawElements(GL_TRIANGLES, grassMesh.indexCount, GL_UNSIGNED_INT, 0);
         glDrawElementsInstanced(GL_TRIANGLES, grassMesh.indexCount, GL_UNSIGNED_INT, 0, grassAmount);
         
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
+
 
     glfwTerminate();
     return 0;

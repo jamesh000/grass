@@ -14,7 +14,7 @@ void main()
         if (col.a < 0.1) discard;
 
         // fog
-        float fog_maxdist = 30.0;
+        float fog_maxdist = 70.0;
         float fog_mindist = 5.0;
         vec4 fog_color = vec4(0.53, 0.80, 0.92, 1.0);
 
