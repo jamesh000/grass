@@ -16,6 +16,7 @@ find_package(glm REQUIRED)
 # Executable
 add_executable(grass
     src/main.cpp
+    src/geometry.cpp
 )
 
 # Link libraries
